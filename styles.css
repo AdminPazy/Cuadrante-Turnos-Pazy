@@ -342,9 +342,9 @@ p{ margin:6px 0 0; }
   border-color: #fdba74 !important;
 }
 #scheduleCapture.export-clean .slotCell.todos .slotSelect{
-  background: #e5e7eb !important;
-  border-color: #94a3b8 !important;
-  color: #374151 !important;
+  background: #9ca3af !important;
+  border-color: #6b7280 !important;
+  color: #111827 !important;
 }
 #scheduleCapture.export-clean .slotSelect{
   text-align: center !important;
@@ -427,9 +427,9 @@ p{ margin:6px 0 0; }
 }
 .slotSelect[disabled]{ opacity: .55; }
 .slotCell.todos .slotSelect{
-  background: #e5e7eb !important;
-  border-color: #cbd5e1 !important;
-  color: #374151 !important;
+  background: #9ca3af !important;
+  border-color: #6b7280 !important;
+  color: #111827 !important;
   font-weight: 700;
 }
 
