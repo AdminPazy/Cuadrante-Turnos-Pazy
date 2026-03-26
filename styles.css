@@ -322,6 +322,13 @@ p{ margin:6px 0 0; }
   background: #f3f4f6 !important;
   color: #374151 !important;
 }
+#scheduleCapture.export-clean .scheduleTable th,
+#scheduleCapture.export-clean .scheduleTable td{
+  border-bottom: 1.5px solid #94a3b8 !important;
+}
+#scheduleCapture.export-clean .scheduleTable tbody tr:nth-child(2n) td{
+  border-bottom: 2.5px solid #64748b !important;
+}
 #scheduleCapture.export-clean .typePill.fijo{
   background: #dff6f8 !important;
   border-color: #7dd3dc !important;
@@ -329,6 +336,16 @@ p{ margin:6px 0 0; }
 #scheduleCapture.export-clean .typePill.backup{
   background: #ffe9df !important;
   border-color: #fdba74 !important;
+}
+#scheduleCapture.export-clean .slotCell.todos .slotSelect{
+  background: #e5e7eb !important;
+  border-color: #94a3b8 !important;
+  color: #374151 !important;
+}
+#scheduleCapture.export-clean .slotSelect{
+  text-align: center !important;
+  text-align-last: center !important;
+  font-weight: 700 !important;
 }
 .scheduleMeta{
   display:flex;
