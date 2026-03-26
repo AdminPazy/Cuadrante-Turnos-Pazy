@@ -52,37 +52,43 @@
               </div>
             </div>
             <div class="row rowTight">
-              <div class="control wide">
-                <label>Excluir del reparto</label>
-                <div id="excludePeople" class="checkList"></div>
-                <div class="row rowTight compactRow">
-                  <div class="control">
-                    <label for="vacPerson">Comercial</label>
-                    <select id="vacPerson"></select>
-                  </div>
-                  <div class="control">
-                    <label for="vacFrom">Desde</label>
-                    <input id="vacFrom" type="date" />
-                  </div>
-                  <div class="control">
-                    <label for="vacTo">Hasta</label>
-                    <input id="vacTo" type="date" />
-                  </div>
-                  <div class="actions">
-                    <button id="btnAddVacation" class="btn ghost" type="button">Guardar vacaciones</button>
-                    <button id="btnRemoveVacation" class="btn ghost" type="button">Quitar rango</button>
-                  </div>
-                </div>
-              </div>
-              <div class="vacBox">
-                <div class="vacTitle">Vacaciones esta semana</div>
-                <div id="vacationsThisWeek" class="vacList muted">—</div>
-              </div>
+              <div class="control wide"></div>
             </div>
           </div>
         </section>
 
         <section class="gridTop">
+          <section class="card cardTight">
+            <div class="cardHeader">
+              <div>
+                <h2>Vacaciones</h2>
+                <p class="muted">Selecciona persona y rango. Si acaba domingo, desde lunes vuelve a entrar en el reparto.</p>
+              </div>
+            </div>
+            <div class="row rowTight compactRow">
+              <div class="control">
+                <label for="vacPerson">Comercial</label>
+                <select id="vacPerson"></select>
+              </div>
+              <div class="control">
+                <label for="vacFrom">Desde</label>
+                <input id="vacFrom" type="date" />
+              </div>
+              <div class="control">
+                <label for="vacTo">Hasta</label>
+                <input id="vacTo" type="date" />
+              </div>
+              <div class="actions">
+                <button id="btnAddVacation" class="btn ghost" type="button">Guardar vacaciones</button>
+                <button id="btnRemoveVacation" class="btn ghost" type="button">Quitar rango</button>
+              </div>
+            </div>
+            <div class="vacBox">
+              <div class="vacTitle">Vacaciones esta semana</div>
+              <div id="vacationsThisWeek" class="vacList muted">—</div>
+            </div>
+          </section>
+
           <section class="card cardTight">
             <div class="cardHeader">
               <div>
