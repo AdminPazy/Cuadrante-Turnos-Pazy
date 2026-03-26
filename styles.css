@@ -73,7 +73,12 @@ body{
   gap: 8px;
 }
 .gridTopWeek{
-  grid-template-columns: 1fr 1fr;
+  display: grid;
+  grid-template-columns: 50% 50%;
+  align-items: start;
+}
+.gridTopWeek > *{
+  min-width: 0;
 }
 @media (max-width: 1000px){
   .gridTop, .gridTopWeek{ grid-template-columns: 1fr; }
