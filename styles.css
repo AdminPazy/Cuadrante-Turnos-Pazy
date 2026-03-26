@@ -106,6 +106,15 @@ select[multiple]{ height: 112px; padding: 10px; }
 }
 .vacTitle{ font-size: 12px; font-weight: 800; color: var(--muted); margin-bottom: 6px; }
 .vacList{ font-size: 13px; line-height: 1.35; }
+.vacationsManagerList{
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+  max-height: 180px;
+  overflow: auto;
+  background: rgba(255,255,255,.04);
+}
 
 .miniCalendar{
   display:grid;
@@ -170,16 +179,16 @@ select[multiple]{ height: 112px; padding: 10px; }
   border-top: 1px solid var(--border);
   padding: 14px 16px 16px;
   display:flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 10px;
-  align-items: flex-end;
+  align-items: stretch;
 }
 
 .control{ display:flex; flex-direction: column; gap:6px; min-width: 220px; }
 .control.small{ min-width: 180px; }
 .control.full{ grid-column: 1 / -1; }
 label{ font-size: 12px; color: var(--muted); }
-input, select{
+input, select, textarea{
   height: 38px;
   padding: 8px 10px;
   border-radius: 12px;
@@ -187,11 +196,13 @@ input, select{
   background: rgba(255,255,255,.06);
   color: var(--text);
   outline: none;
+  font-family: var(--fontMain);
 }
+textarea{ height: auto; min-height: 92px; resize: vertical; }
 @media (prefers-color-scheme: light){
-  input, select{ background: rgba(255,255,255,.65); }
+  input, select, textarea{ background: rgba(255,255,255,.65); }
 }
-input:focus, select:focus{
+input:focus, select:focus, textarea:focus{
   border-color: rgba(0,198,204,.55);
   box-shadow: 0 0 0 4px var(--pazySoft);
 }

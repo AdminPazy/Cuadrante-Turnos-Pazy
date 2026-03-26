@@ -1,19 +1,20 @@
 /* global html2canvas */
 
+const STORAGE_KEY = "turnosPazy.localState.v2";
 const DEFAULT_PEOPLE = [
   "Georgi Valeriev",
-  "Magüi Cerdá",
+  "Magui Cerda",
   "Antonella Sipan",
-  "Iñigo Puyol",
+  "Inigo Puyol",
   "Luz Romero",
-  "Patricia López",
+  "Patricia Lopez",
   "Jorge Romera",
-  "Irene Peñalosa",
+  "Irene Penalosa",
   "Maria Jose Rubio",
   "Alessandra Solis",
   "Adrian Garces",
   "Ignacio Rivas",
-  "Alonso García",
+  "Alonso Garcia",
   "Rodrigo Fernandez",
   "Lara Carrasco",
 ];
@@ -34,10 +35,7 @@ const FRANJAS = [
   { key: "NOCHE", label: "Noche", hours: "22–8" },
 ];
 
-const TIPOS = [
-  { key: "FIJO", label: "Fijo" },
-  { key: "BACKUP", label: "Back-up" },
-];
+const TIPOS = [{ key: "FIJO", label: "Fijo" }, { key: "BACKUP", label: "Back-up" }];
 
 function qs(id) {
   const el = document.getElementById(id);
@@ -144,17 +142,17 @@ function createEmptySchedule(weekStartISO) {
   return { weekStart: weekStartISO, slots };
 }
 
-function localConfigGet() {
+function loadState() {
   try {
-    const raw = localStorage.getItem("turnosPazy.config");
+    const raw = localStorage.getItem(STORAGE_KEY);
     return raw ? JSON.parse(raw) : {};
   } catch {
     return {};
   }
 }
 
-function localConfigSet(next) {
-  localStorage.setItem("turnosPazy.config", JSON.stringify(next));
+function saveState(next) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
 }
 
 function setStatus(text, kind = "muted") {
@@ -188,7 +186,7 @@ function makePeopleModel(rawPeople, vacationsByISO) {
 
 function availablePeopleForDate(peopleModel, iso) {
   const blocked = new Set((peopleModel.vacationsByISO?.[iso] || []).map(normalizeName));
-  const excluded = getExcludedSet();
+  const excluded = getExcludedSet(window.__state || {});
   return peopleModel.all.filter((n) => !blocked.has(normalizeName(n)) && !excluded.has(normalizeName(n)));
 }
 
@@ -411,46 +409,19 @@ function generateEquitableAssignments(schedule, peopleModel) {
   return { missing };
 }
 
-function apiBase() {
-  const url = clampStr(qs("webAppUrl").value);
-  if (!url) return null;
-  return url.replace(/\/+$/, "");
-}
-
-async function apiCall(action, payload) {
-  const base = apiBase();
-  if (!base) throw new Error("Falta Web App URL.");
-  // Apps Script + GitHub Pages: evitamos preflight usando un Content-Type "simple".
-  const res = await fetch(`${base}?action=${encodeURIComponent(action)}`, {
-    method: "POST",
-    headers: { "content-type": "text/plain;charset=UTF-8" },
-    body: JSON.stringify(payload || {}),
-  });
-  if (!res.ok) {
-    const txt = await res.text().catch(() => "");
-    throw new Error(`Error ${res.status}: ${txt || res.statusText}`);
-  }
-  const data = await res.json();
-  if (!data?.ok) throw new Error(data?.error || "Error desconocido del servidor");
-  return data;
-}
-
-function getExcludedSet() {
-  const cfg = localConfigGet();
-  const arr = Array.isArray(cfg.excludedPeople) ? cfg.excludedPeople : [];
+function getExcludedSet(state) {
+  const arr = Array.isArray(state.excludedPeople) ? state.excludedPeople : [];
   return new Set(arr.map(normalizeName).filter(Boolean));
 }
 
-function setExcludedPeople(nextNames) {
-  const cfg = localConfigGet();
-  cfg.excludedPeople = sortNames(unique(nextNames.map(normalizeName).filter(Boolean)));
-  localConfigSet(cfg);
+function setExcludedPeople(state, nextNames) {
+  state.excludedPeople = sortNames(unique(nextNames.map(normalizeName).filter(Boolean)));
 }
 
-function renderPeopleList(peopleModel) {
+function renderPeopleList(peopleModel, state) {
   const wrap = qs("peopleList");
   wrap.innerHTML = "";
-  const excluded = getExcludedSet();
+  const excluded = getExcludedSet(state);
   for (const p of peopleModel.all) {
     const chip = document.createElement("div");
     chip.className = `personChip${excluded.has(normalizeName(p)) ? " off" : ""}`;
@@ -459,11 +430,11 @@ function renderPeopleList(peopleModel) {
   }
 }
 
-function renderExcludeControl(peopleModel) {
+function renderExcludeControl(peopleModel, state, onChange) {
   const el = document.getElementById("excludePeople");
   if (!el) return;
 
-  const excluded = getExcludedSet();
+  const excluded = getExcludedSet(state);
   el.innerHTML = "";
   for (const name of peopleModel.all) {
     const opt = document.createElement("option");
@@ -475,8 +446,8 @@ function renderExcludeControl(peopleModel) {
 
   el.onchange = () => {
     const selected = Array.from(el.selectedOptions).map((o) => o.value);
-    setExcludedPeople(selected);
-    renderAll(window.__schedule, window.__peopleModel);
+    setExcludedPeople(state, selected);
+    onChange();
   };
 }
 
@@ -503,7 +474,7 @@ function renderImagePreview(lastImage) {
   el.innerHTML = `
     <img src="${escapeHtml(lastImage.previewUrl)}" alt="Imagen de turnos" />
     <div class="imageActions">
-      <a class="linkBtn" href="${escapeHtml(lastImage.fileUrl || lastImage.previewUrl)}" target="_blank" rel="noreferrer">Abrir en Drive</a>
+      <span class="linkBtn">${escapeHtml(lastImage.githubPath || "")}</span>
       <span class="muted">${escapeHtml(lastImage.fileName || "")}</span>
     </div>
   `;
@@ -544,7 +515,7 @@ function renderMiniCalendar(weekStartISO) {
       .join("");
 }
 
-function renderScheduleTable(schedule, peopleModel) {
+function renderScheduleTable(schedule, peopleModel, onSelectChange) {
   const weekStart = parseISODate(schedule.weekStart);
   const week = buildWeek(weekStart);
   const tbody = qs("scheduleBody");
@@ -593,7 +564,7 @@ function renderScheduleTable(schedule, peopleModel) {
             setSlot(schedule, id, { asignadoA: sel.value });
             renderSummary(schedule);
             refreshChangeSlotOptions(schedule);
-            if (typeof window.__autoSaveDebounced === "function") window.__autoSaveDebounced("edición");
+            onSelectChange();
           });
 
           td.appendChild(sel);
@@ -713,54 +684,74 @@ function ensureWeekStartIsThursday(iso) {
   return toISODate(thu);
 }
 
-async function loadBootstrap(schedule) {
-  const sheetId = clampStr(qs("sheetId").value);
-  if (!sheetId) {
-    setStatus("Falta Google Sheet ID. Puedes usar modo local por ahora.", "warn");
-    return { people: DEFAULT_PEOPLE, vacationsByISO: {}, vacationEvents: [], changes: [], scheduleFromServer: null };
+function buildVacationsByISO(vacationRanges) {
+  const byISO = {};
+  for (const row of vacationRanges || []) {
+    const person = normalizeName(row.person);
+    const from = parseISODate(row.from);
+    const to = parseISODate(row.to);
+    if (!person || !from || !to) continue;
+    let cur = startOfDay(from);
+    const end = startOfDay(to);
+    while (cur <= end) {
+      const iso = toISODate(cur);
+      if (!byISO[iso]) byISO[iso] = [];
+      byISO[iso].push(person);
+      cur = addDays(cur, 1);
+    }
   }
-
-  try {
-    const data = await apiCall("getBootstrap", {
-      sheetId,
-      weekStart: schedule.weekStart,
-    });
-
-    return {
-      people: (data.people || []).map(normalizeName).filter(Boolean),
-      vacationsByISO: data.vacationsByISO || {},
-      vacationEvents: data.vacationEvents || [],
-      changes: data.changes || [],
-      scheduleFromServer: data.schedule || null,
-      config: data.config || null,
-    };
-  } catch (e) {
-    setStatus(`No se pudo cargar de Sheets: ${e.message}. Usando modo local.`, "warn");
-    return { people: DEFAULT_PEOPLE, vacationsByISO: {}, vacationEvents: [], changes: [], scheduleFromServer: null };
-  }
+  return byISO;
 }
 
-function scheduleFromServerPayload(weekStartISO, payload) {
-  const schedule = createEmptySchedule(weekStartISO);
-  if (!payload?.rows?.length) return schedule;
-  for (const r of payload.rows) {
-    const id = slotId(r.fecha, r.franja, r.tipo);
-    if (!schedule.slots[id]) continue;
-    schedule.slots[id] = {
-      ...schedule.slots[id],
-      modo: r.modo || (r.tipo === "TODOS" ? "TODOS" : "NORMAL"),
-      asignadoA: r.asignadoA || "",
-      nota: r.nota || "",
-    };
+function buildVacationEventsForWeek(vacationsByISO, weekStartISO) {
+  const week = buildWeek(parseISODate(weekStartISO));
+  return week
+    .map((d) => ({ iso: d.iso, names: vacationsByISO[d.iso] || [] }))
+    .filter((x) => x.names.length);
+}
+
+function normalizeState(input) {
+  const nowWeek = ensureWeekStartIsThursday(toISODate(computeWeekStartThursday(new Date())));
+  const next = input || {};
+  return {
+    weekStart: ensureWeekStartIsThursday(next.weekStart || nowWeek),
+    people: sortNames(unique((next.people || DEFAULT_PEOPLE).map(normalizeName).filter(Boolean))),
+    excludedPeople: sortNames(unique((next.excludedPeople || []).map(normalizeName).filter(Boolean))),
+    vacationRanges: Array.isArray(next.vacationRanges) ? next.vacationRanges : [],
+    changesByWeek: next.changesByWeek || {},
+    schedulesByWeek: next.schedulesByWeek || {},
+    imagesMeta: Array.isArray(next.imagesMeta) ? next.imagesMeta : [],
+    generatedAtByWeek: next.generatedAtByWeek || {},
+  };
+}
+
+function buildPeopleTextarea(people) {
+  return sortNames(people).join("\n");
+}
+
+function parsePeopleTextarea(raw) {
+  return sortNames(unique(String(raw || "").split("\n").map(normalizeName).filter(Boolean)));
+}
+
+function renderVacationManagerList(state) {
+  const el = qs("vacationsManagerList");
+  const rows = [...state.vacationRanges].sort((a, b) => `${a.person}${a.from}`.localeCompare(`${b.person}${b.from}`));
+  if (!rows.length) {
+    el.textContent = "—";
+    return;
   }
-  return schedule;
+  el.innerHTML = rows.map((r) => `<div>${escapeHtml(r.person)}: ${escapeHtml(r.from)} → ${escapeHtml(r.to)}</div>`).join("");
+}
+
+function renderVacationPersonOptions(state) {
+  const sel = qs("vacPerson");
+  sel.innerHTML = "";
+  for (const p of state.people) sel.appendChild(buildOption(p, p));
 }
 
 function wireTodosToggles(schedule) {
-  // UX: doble click sobre cabecera de columna (fila FIJO) para marcar TODOS para ese día+franja.
-  // Implementado como doble click sobre la celda del select (fila FIJO) cuando está en NORMAL.
   const tbody = qs("scheduleBody");
-  tbody.addEventListener("dblclick", (ev) => {
+  tbody.ondblclick = (ev) => {
     const sel = ev.target?.closest?.("select.slotSelect");
     if (!sel) return;
     const id = sel.dataset.slotId;
@@ -769,19 +760,20 @@ function wireTodosToggles(schedule) {
     const franjaKey = franja;
     const on = !isTodosDayFranja(schedule, iso, franjaKey);
     setTodosForDayFranja(schedule, iso, franjaKey, on);
-    renderAll(schedule, window.__peopleModel);
+    if (typeof window.__rerender === "function") window.__rerender();
     setStatus(on ? "Marcado como TODOS (doble click para revertir)." : "TODOS desactivado.", "ok");
-  });
+  };
 }
 
-function renderAll(schedule, peopleModel) {
+function renderAll(schedule, peopleModel, state, onExcludeChange, onSelectChange) {
   window.__schedule = schedule;
   window.__peopleModel = peopleModel;
+  window.__state = state;
   updateMeta(schedule);
-  renderPeopleList(peopleModel);
-  renderExcludeControl(peopleModel);
+  renderPeopleList(peopleModel, state);
+  renderExcludeControl(peopleModel, state, onExcludeChange);
   renderMiniCalendar(schedule.weekStart);
-  renderScheduleTable(schedule, peopleModel);
+  renderScheduleTable(schedule, peopleModel, onSelectChange);
   renderSummary(schedule);
   refreshChangeSlotOptions(schedule);
 }
@@ -802,21 +794,7 @@ function capitalize(s) {
   return str ? str[0].toUpperCase() + str.slice(1) : str;
 }
 
-async function saveToSheets(schedule, changes) {
-  const sheetId = clampStr(qs("sheetId").value);
-  if (!sheetId) throw new Error("Falta Google Sheet ID.");
-  await apiCall("saveWeek", {
-    sheetId,
-    weekStart: schedule.weekStart,
-    rows: scheduleToRows(schedule),
-    changes,
-  });
-}
-
-async function saveImageToDrive(schedule) {
-  const sheetId = clampStr(qs("sheetId").value);
-  if (!sheetId) throw new Error("Falta Google Sheet ID.");
-
+async function saveImageLocal(schedule) {
   const capture = qs("scheduleCapture");
   const canvas = await html2canvas(capture, {
     backgroundColor: null,
@@ -824,100 +802,77 @@ async function saveImageToDrive(schedule) {
     useCORS: true,
   });
   const dataUrl = canvas.toDataURL("image/png");
-  const filename = `Turnos_${schedule.weekStart}_${todayISO()}.png`;
-
-  const data = await apiCall("uploadPng", {
-    sheetId,
-    weekStart: schedule.weekStart,
-    filename,
-    dataUrl,
-  });
-  return data;
+  const yyyy = new Date().getFullYear();
+  const mm = String(new Date().getMonth() + 1).padStart(2, "0");
+  const filename = `Turnos_${schedule.weekStart}_${Date.now()}.png`;
+  const a = document.createElement("a");
+  a.href = dataUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  return {
+    fileName: filename,
+    previewUrl: dataUrl,
+    githubPath: `imagenes/${yyyy}/${mm}/${filename}`,
+    createdAt: new Date().toLocaleString("es-ES"),
+  };
 }
 
 function init() {
-  const cfg = localConfigGet();
-  const weekStart = ensureWeekStartIsThursday(cfg.weekStart || toISODate(computeWeekStartThursday(new Date())));
+  const state = normalizeState(loadState());
+  const weekStart = ensureWeekStartIsThursday(state.weekStart || toISODate(computeWeekStartThursday(new Date())));
   qs("weekStart").value = weekStart;
-  // Si se abre desde un Web App de Apps Script, podemos autodetectar la URL base.
-  const currentBase = `${window.location.origin}${window.location.pathname}`.replace(/\/+$/, "");
-  qs("webAppUrl").value = cfg.webAppUrl || (window.location.pathname.includes("/exec") ? currentBase : "");
-  qs("sheetId").value = cfg.sheetId || "";
+  qs("peopleInput").value = buildPeopleTextarea(state.people);
 
-  let schedule = createEmptySchedule(weekStart);
-  let changes = [];
-  let lastImage = null;
+  let schedule = state.schedulesByWeek[weekStart] || createEmptySchedule(weekStart);
+  let changes = state.changesByWeek[weekStart] || [];
+  let lastImage = state.imagesMeta[0] || null;
+  let peopleModel = makePeopleModel(state.people, buildVacationsByISO(state.vacationRanges));
 
-  const autoSave = async (reason) => {
-    const hasIntegration = Boolean(clampStr(qs("webAppUrl").value) && clampStr(qs("sheetId").value));
-    if (!hasIntegration) return;
-    try {
-      setStatus(`Guardando… (${reason})`, "muted");
-      await saveToSheets(schedule, changes);
-      setStatus("Guardado.", "ok");
-    } catch (e) {
-      setStatus(`No se pudo guardar: ${e.message}`, "bad");
-    }
+  const persist = (reason) => {
+    state.weekStart = schedule.weekStart;
+    state.people = peopleModel.all;
+    state.schedulesByWeek[schedule.weekStart] = schedule;
+    state.changesByWeek[schedule.weekStart] = changes;
+    saveState(state);
+    setStatus(`Guardado local (${reason})`, "ok");
   };
-  const autoSaveDebounced = (() => {
+
+  const persistDebounced = (() => {
     let t = null;
     return (reason) => {
       if (t) clearTimeout(t);
-      t = setTimeout(() => autoSave(reason), 900);
+      t = setTimeout(() => persist(reason), 800);
     };
   })();
-  window.__autoSaveDebounced = autoSaveDebounced;
 
-  const updateIntegrationButtons = () => {
-    const hasIntegration = Boolean(clampStr(qs("webAppUrl").value) && clampStr(qs("sheetId").value));
-    qs("btnLoad").disabled = !hasIntegration;
-    qs("btnSave").disabled = !hasIntegration;
-    qs("btnSaveImage").disabled = !hasIntegration;
-    qs("localHint").innerHTML = hasIntegration
-      ? "Integración activa: puedes cargar/guardar en Sheets y subir imagen a Drive."
-      : "Empieza en local: elige jueves y pulsa <strong>Generar</strong>. La conexión con Google la puedes activar después.";
+  const rerender = () => {
+    renderAll(schedule, peopleModel, state, () => {
+      rerender();
+      persistDebounced("exclusion");
+    }, () => persistDebounced("edicion"));
+    renderVacationsThisWeek(buildVacationEventsForWeek(peopleModel.vacationsByISO, schedule.weekStart));
+    renderImagePreview(lastImage);
+    renderVacationPersonOptions(state);
+    renderVacationManagerList(state);
+    renderChangesHistory(changes);
   };
-
-  const persist = () => {
-    localConfigSet({
-      weekStart: qs("weekStart").value,
-      webAppUrl: qs("webAppUrl").value,
-      sheetId: qs("sheetId").value,
-    });
-    updateIntegrationButtons();
-  };
+  window.__rerender = rerender;
 
   const hardReload = async () => {
-    persist();
     const iso = ensureWeekStartIsThursday(qs("weekStart").value);
     qs("weekStart").value = iso;
-    schedule = createEmptySchedule(iso);
-    changes = [];
-
-    setStatus("Cargando datos…", "muted");
-    const boot = await loadBootstrap(schedule);
-    const peopleModel = makePeopleModel(boot.people, boot.vacationsByISO);
-
-    if (boot.scheduleFromServer) {
-      schedule = scheduleFromServerPayload(iso, boot.scheduleFromServer);
-    }
-    changes = (boot.changes || []).map((c) => ({
-      ...c,
-      slotLabel: c.slotLabel || buildSlotLabel(c.slotId || ""),
-    }));
-
-    renderAll(schedule, peopleModel);
-    renderVacationsThisWeek(boot.vacationEvents);
-    renderImagePreview(lastImage);
+    state.weekStart = iso;
+    peopleModel = makePeopleModel(state.people, buildVacationsByISO(state.vacationRanges));
+    schedule = state.schedulesByWeek[iso] || createEmptySchedule(iso);
+    changes = state.changesByWeek[iso] || [];
+    rerender();
     wireTodosToggles(schedule);
-    renderChangesHistory(changes);
-    setStatus("Cargado.", "ok");
+    persistDebounced("cambio-semana");
   };
 
-  qs("btnLoad").addEventListener("click", () => hardReload());
   qs("weekStart").addEventListener("change", () => hardReload());
-  qs("webAppUrl").addEventListener("change", persist);
-  qs("sheetId").addEventListener("change", persist);
 
   qs("changeSlot").addEventListener("change", () => refreshChangePeopleOptions(schedule));
 
@@ -975,10 +930,9 @@ function init() {
       });
     }
 
-    renderAll(schedule, window.__peopleModel);
-    renderChangesHistory(changes);
+    rerender();
     setStatus("Cambio aplicado.", "ok");
-    autoSaveDebounced("cambio");
+    persistDebounced("cambio");
   };
 
   // Botón legacy (si existiera en versiones anteriores)
@@ -986,33 +940,27 @@ function init() {
   if (maybeApply) maybeApply.addEventListener("click", applyChange);
   qs("btnApplyChange2").addEventListener("click", applyChange);
 
-  qs("btnSave").addEventListener("click", async () => {
-    try {
-      setStatus("Guardando en Sheets…", "muted");
-      await saveToSheets(schedule, changes);
-      setStatus("Guardado en Sheets.", "ok");
-    } catch (e) {
-      setStatus(`No se pudo guardar: ${e.message}`, "bad");
+  qs("btnApplyPeople").addEventListener("click", () => {
+    const people = parsePeopleTextarea(qs("peopleInput").value);
+    if (!people.length) {
+      setStatus("Introduce al menos 1 comercial.", "warn");
+      return;
     }
+    state.people = people;
+    peopleModel = makePeopleModel(state.people, buildVacationsByISO(state.vacationRanges));
+    rerender();
+    persist("comerciales");
   });
 
   qs("btnSaveImage").addEventListener("click", async () => {
-    if (qs("btnSaveImage").disabled) {
-      setStatus("Configura Web App URL + Sheet ID para guardar imagen en Drive.", "warn");
-      return;
-    }
     try {
-      setStatus("Generando PNG y subiendo a Drive…", "muted");
-      const data = await saveImageToDrive(schedule);
+      setStatus("Generando PNG…", "muted");
+      const data = await saveImageLocal(schedule);
       lastImage = data;
+      state.imagesMeta.unshift(data);
+      state.imagesMeta = state.imagesMeta.slice(0, 50);
       renderImagePreview(lastImage);
-      setStatus(`Imagen subida a Drive. Archivo: ${data.fileName}`, "ok");
-      if (data.fileUrl) {
-        // Mostrar enlace de forma sencilla sin romper el layout
-        const msg = `Imagen subida a Drive: ${data.fileName}`;
-        qs("status").textContent = msg;
-        qs("status").title = data.fileUrl;
-      }
+      persist("imagen");
     } catch (e) {
       setStatus(`No se pudo guardar imagen: ${e.message}`, "bad");
     }
@@ -1028,13 +976,62 @@ function init() {
       } else {
         setStatus("Turnos generados.", "ok");
       }
-      autoSaveDebounced("auto");
+      persistDebounced("generar");
     } catch (e) {
       setStatus(`No se pudo generar: ${e.message}`, "bad");
     }
   });
 
-  updateIntegrationButtons();
+  qs("btnAddVacation").addEventListener("click", () => {
+    const person = normalizeName(qs("vacPerson").value);
+    const from = clampStr(qs("vacFrom").value);
+    const to = clampStr(qs("vacTo").value) || from;
+    if (!person || !from || !to) {
+      setStatus("Selecciona comercial y rango de fechas.", "warn");
+      return;
+    }
+    state.vacationRanges.push({ person, from, to });
+    peopleModel = makePeopleModel(state.people, buildVacationsByISO(state.vacationRanges));
+    rerender();
+    persist("vacaciones");
+  });
+
+  qs("btnRemoveVacation").addEventListener("click", () => {
+    const person = normalizeName(qs("vacPerson").value);
+    const from = clampStr(qs("vacFrom").value);
+    const to = clampStr(qs("vacTo").value) || from;
+    state.vacationRanges = state.vacationRanges.filter((x) => !(x.person === person && x.from === from && x.to === to));
+    peopleModel = makePeopleModel(state.people, buildVacationsByISO(state.vacationRanges));
+    rerender();
+    persist("vacaciones");
+  });
+
+  qs("btnExportData").addEventListener("click", () => {
+    persist("export");
+    const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `turnos-pazy-data-${todayISO()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  });
+
+  qs("btnImportData").addEventListener("click", () => qs("fileImportData").click());
+  qs("fileImportData").addEventListener("change", async (ev) => {
+    const file = ev.target.files?.[0];
+    if (!file) return;
+    const txt = await file.text();
+    const imported = normalizeState(JSON.parse(txt));
+    Object.assign(state, imported);
+    qs("peopleInput").value = buildPeopleTextarea(state.people);
+    qs("weekStart").value = state.weekStart;
+    await hardReload();
+    persist("import");
+  });
+
   hardReload().catch((e) => setStatus(`Error: ${e.message}`, "bad"));
 }
 

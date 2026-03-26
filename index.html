@@ -63,28 +63,26 @@
             </div>
           </div>
 
-          <details class="card cardTight integrationCard">
-            <summary>Integración Google (opcional)</summary>
-            <div class="integrationBody">
-              <div class="control">
-                <label for="webAppUrl">Web App URL</label>
-                <input
-                  id="webAppUrl"
-                  type="url"
-                  placeholder="URL de Apps Script (Web App)"
-                  spellcheck="false"
-                />
-              </div>
-              <div class="control small">
-                <label for="sheetId">Google Sheet ID</label>
-                <input id="sheetId" type="text" placeholder="ID del Sheet" spellcheck="false" />
-              </div>
-              <div class="actions">
-                <button id="btnLoad" class="btn ghost" type="button">Cargar</button>
-                <button id="btnSave" class="btn ghost" type="button">Guardar</button>
+          <section class="card cardTight">
+            <div class="cardHeader">
+              <div>
+                <h2>Datos locales</h2>
+                <p class="muted">Sin Google: todo queda en tu navegador y puedes importar/exportar JSON.</p>
               </div>
             </div>
-          </details>
+            <div class="integrationBody">
+              <div class="control">
+                <label for="peopleInput">Comerciales (uno por línea)</label>
+                <textarea id="peopleInput" rows="4" placeholder="Nombre Apellido"></textarea>
+              </div>
+              <div class="actions">
+                <button id="btnApplyPeople" class="btn ghost" type="button">Aplicar comerciales</button>
+                <button id="btnExportData" class="btn ghost" type="button">Exportar JSON</button>
+                <button id="btnImportData" class="btn ghost" type="button">Importar JSON</button>
+                <input id="fileImportData" type="file" accept=".json,application/json" hidden />
+              </div>
+            </div>
+          </section>
         </section>
 
         <section class="gridTop">
@@ -107,6 +105,34 @@
             </div>
             <div id="imagePreview" class="imagePreview muted">—</div>
           </section>
+        </section>
+
+        <section class="card cardTight">
+          <div class="cardHeader">
+            <div>
+              <h2>Vacaciones</h2>
+              <p class="muted">Selecciona persona y días para descartarla automáticamente del reparto.</p>
+            </div>
+          </div>
+          <div class="row">
+            <div class="control">
+              <label for="vacPerson">Comercial</label>
+              <select id="vacPerson"></select>
+            </div>
+            <div class="control">
+              <label for="vacFrom">Desde</label>
+              <input id="vacFrom" type="date" />
+            </div>
+            <div class="control">
+              <label for="vacTo">Hasta</label>
+              <input id="vacTo" type="date" />
+            </div>
+            <div class="actions">
+              <button id="btnAddVacation" class="btn" type="button">Añadir vacaciones</button>
+              <button id="btnRemoveVacation" class="btn ghost" type="button">Quitar rango</button>
+            </div>
+          </div>
+          <div id="vacationsManagerList" class="vacList muted">—</div>
         </section>
 
         <section class="card">
@@ -236,7 +262,7 @@
       </main>
 
       <footer class="footer muted">
-        Hecho para planificación de turnos (jueves–miércoles). La conexión a Sheets/Drive requiere Apps Script Web App.
+        Hecho para planificación de turnos (jueves–miércoles) en modo local.
       </footer>
     </div>
   </body>
