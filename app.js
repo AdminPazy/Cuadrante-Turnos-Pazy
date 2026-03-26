@@ -229,6 +229,13 @@ function renderTable(schedule, state, onChange) {
           else schedule.slots[id] = { ...cur, modo: "NORMAL", asignadoA: sel.value };
           onChange();
         });
+        sel.addEventListener("dblclick", (ev) => {
+          ev.preventDefault();
+          const now = schedule.slots[id];
+          if (now.modo === "TODOS") schedule.slots[id] = { ...now, modo: "NORMAL", asignadoA: "" };
+          else schedule.slots[id] = { ...now, modo: "TODOS", asignadoA: "" };
+          onChange();
+        });
         const td = document.createElement("td");
         td.appendChild(sel);
         tr.appendChild(td);

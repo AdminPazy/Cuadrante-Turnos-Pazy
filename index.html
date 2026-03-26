@@ -31,7 +31,7 @@
       </header>
 
       <main class="content">
-        <section class="gridTop">
+        <section class="gridTop gridTopWeek">
           <div class="card cardTight">
             <div class="cardHeader">
               <div>
@@ -55,6 +55,20 @@
               <div class="control wide"></div>
             </div>
           </div>
+          <section class="card cardTight">
+            <div class="cardHeader">
+              <div>
+                <h2>Calendario</h2>
+                <p class="muted">Semana marcada (jueves → miércoles).</p>
+              </div>
+              <div class="actions">
+                <button id="btnMonthPrev" class="btn ghost" type="button">◀</button>
+                <div id="monthLabel" class="muted"></div>
+                <button id="btnMonthNext" class="btn ghost" type="button">▶</button>
+              </div>
+            </div>
+            <div id="miniCalendar" class="miniCalendar" aria-label="Calendario del mes"></div>
+          </section>
         </section>
 
         <section class="gridTop">
@@ -89,20 +103,6 @@
             </div>
           </section>
 
-          <section class="card cardTight">
-            <div class="cardHeader">
-              <div>
-                <h2>Calendario</h2>
-                <p class="muted">Semana marcada (jueves → miércoles).</p>
-              </div>
-              <div class="actions">
-                <button id="btnMonthPrev" class="btn ghost" type="button">◀</button>
-                <div id="monthLabel" class="muted"></div>
-                <button id="btnMonthNext" class="btn ghost" type="button">▶</button>
-              </div>
-            </div>
-            <div id="miniCalendar" class="miniCalendar" aria-label="Calendario del mes"></div>
-          </section>
         </section>
 
         <section class="card">
