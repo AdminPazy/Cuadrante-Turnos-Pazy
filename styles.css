@@ -70,7 +70,7 @@ body{
 .gridTop{
   display:grid;
   grid-template-columns: 1fr;
-  gap: 10px;
+  gap: 8px;
 }
 @media (max-width: 1000px){
   .gridTop{ grid-template-columns: 1fr; }
@@ -131,7 +131,7 @@ body{
 .miniCalendar{
   display:grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 8px;
+  gap: 5px;
 }
 .calHead{
   font-size: 12px;
@@ -144,8 +144,8 @@ body{
   border: 1px solid var(--border);
   background: rgba(255,255,255,.04);
   border-radius: 12px;
-  min-height: 44px;
-  padding: 8px 10px;
+  min-height: 34px;
+  padding: 5px 8px;
   font-weight: 800;
   display:flex;
   align-items:flex-start;
@@ -153,11 +153,14 @@ body{
 }
 .calCell.off{ opacity:.45; }
 .calCell.inWeek{
-  border-color: rgba(0,198,204,.55);
-  box-shadow: 0 0 0 4px var(--pazySoft);
+  border-color: rgba(0,198,204,.9);
+  background: rgba(0,198,204,.22);
+  box-shadow: 0 0 0 3px rgba(0,198,204,.35);
 }
 .calCell.isThu{
-  background: rgba(0,198,204,.14);
+  background: rgba(0,198,204,.36);
+  border-color: rgba(11,134,152,.95);
+  box-shadow: 0 0 0 3px rgba(11,134,152,.35);
 }
 
 .imagePreview{
@@ -244,14 +247,14 @@ input:focus, select:focus, textarea:focus{
   box-shadow: 0 12px 26px rgba(0,198,204,.22);
 }
 
-.content{ padding-top: 10px; display:flex; flex-direction: column; gap: 10px; }
+.content{ padding-top: 8px; display:flex; flex-direction: column; gap: 8px; }
 
 .card{
   border: 1px solid var(--border);
   background: linear-gradient(180deg, var(--panel2), var(--panel));
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  padding: 12px;
+  padding: 10px;
 }
 .cardHeader{
   display:flex;

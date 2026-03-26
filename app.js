@@ -75,12 +75,13 @@ function loadState() {
     return {
       weekStart: computeThursday(parsed.weekStart),
       monthOffset: Number(parsed.monthOffset || 0),
+      generationCounter: Number(parsed.generationCounter || 0),
       people: sortNames(uniq((parsed.people || DEFAULT_PEOPLE).map(norm).filter(Boolean))),
       vacationRanges: Array.isArray(parsed.vacationRanges) ? parsed.vacationRanges : [],
       schedulesByWeek: parsed.schedulesByWeek || {},
     };
   } catch {
-    return { weekStart: computeThursday(), monthOffset: 0, people: DEFAULT_PEOPLE, vacationRanges: [], schedulesByWeek: {} };
+    return { weekStart: computeThursday(), monthOffset: 0, generationCounter: 0, people: DEFAULT_PEOPLE, vacationRanges: [], schedulesByWeek: {} };
   }
 }
 
@@ -248,7 +249,9 @@ function mulberry32(seed) {
 
 function generate(schedule, state) {
   const vacMap = vacationsByISO(state);
-  const rng = mulberry32((Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0);
+  state.generationCounter = Number(state.generationCounter || 0) + 1;
+  const seed = (Date.now() ^ Math.floor(Math.random() * 1e9) ^ (state.generationCounter * 2654435761)) >>> 0;
+  const rng = mulberry32(seed);
   const stats = new Map(state.people.map((p) => [p, { total: 0, byFranja: { MANANA: 0, TARDE: 0, NOCHE: 0 }, fijo: 0, backup: 0 }]));
   for (const s of Object.values(schedule.slots)) if (s.modo !== "TODOS") s.asignadoA = "";
   for (const day of weekFrom(schedule.weekStart)) {
@@ -264,11 +267,11 @@ function generate(schedule, state) {
           cur.asignadoA = "";
           continue;
         }
-        const scored = cands.map((n) => {
+        const scored = cands.map((n, idx) => {
           const s = stats.get(n);
           return {
             n,
-            score: s.total * 10 + s.byFranja[franja.key] * 8 + (tipo.key === "FIJO" ? s.fijo : s.backup) * 6 + rng(),
+            score: s.total * 10 + s.byFranja[franja.key] * 8 + (tipo.key === "FIJO" ? s.fijo : s.backup) * 6 + rng() + (idx * 0.001),
           };
         }).sort((a, b) => a.score - b.score);
         const best = scored[0].score;
@@ -331,6 +334,7 @@ function init() {
     generate(schedule, state);
     rerender();
     persist("generar");
+    status(`Turnos generados (tirada #${state.generationCounter}).`, "ok");
   });
 
   qs("btnSaveImage").addEventListener("click", async () => {
