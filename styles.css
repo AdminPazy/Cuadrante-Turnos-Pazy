@@ -138,6 +138,7 @@ body{
   background: rgba(255,255,255,.04);
   border-radius: 14px;
   padding: 8px 10px;
+  margin-top: 10px;
 }
 .vacTitle{ font-size: 12px; font-weight: 800; color: var(--muted); margin-bottom: 6px; }
 .vacList{ font-size: 13px; line-height: 1.35; }
