@@ -248,7 +248,7 @@ function renderTable(schedule, state, onChange) {
           onChange();
         });
         const td = document.createElement("td");
-        td.className = `slotCell${cur.modo === "TODOS" ? " todos" : ""}`;
+        td.className = `slotCell${tipo.key === "FIJO" ? " fijo" : ""}${cur.modo === "TODOS" ? " todos" : ""}`;
         td.appendChild(sel);
         tr.appendChild(td);
       }
