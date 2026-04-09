@@ -59,6 +59,12 @@ function fixName(s) {
   return NAME_FIX[n] || n;
 }
 
+/** Todos los comerciales en desplegables: lista base + cualquier nombre extra guardado en estado. */
+function allVentasForDropdown(state) {
+  const extra = Array.isArray(state.people) ? state.people : [];
+  return sortNames(uniq([...DEFAULT_PEOPLE, ...extra].map(fixName).filter(Boolean)));
+}
+
 function normalizeKey(s) {
   return norm(s)
     .normalize("NFD")
@@ -449,7 +455,7 @@ function renderSummary(schedule) {
 }
 
 function renderTable(schedule, state, onChange) {
-  const vacMap = vacationsByISO(state);
+  const ventas = allVentasForDropdown(state);
   const tbody = qs("scheduleBody");
   tbody.innerHTML = "";
   for (const day of weekFrom(schedule.weekStart)) {
@@ -472,11 +478,7 @@ function renderTable(schedule, state, onChange) {
         sel.className = "slotSelect";
         sel.appendChild(new Option("—", ""));
         sel.appendChild(new Option("TODOS", "__TODOS__"));
-        const blockedToday = new Set((vacMap[day.iso] || []).map(norm));
-        for (const p of state.people) {
-          const label = blockedToday.has(norm(p)) ? `${p} (vacaciones)` : p;
-          sel.appendChild(new Option(label, p));
-        }
+        for (const p of ventas) sel.appendChild(new Option(p, p));
         sel.value = cur.modo === "TODOS" ? "__TODOS__" : (cur.asignadoA || "");
         sel.addEventListener("change", () => {
           if (sel.value === "__TODOS__") schedule.slots[id] = { ...cur, modo: "TODOS", asignadoA: "" };
