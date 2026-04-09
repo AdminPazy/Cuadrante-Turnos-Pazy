@@ -287,6 +287,14 @@ function weekFrom(startISO) {
   });
 }
 
+/** Fecha legible para PNG: 09 - Abril - 2026 (solo visible en export-clean). */
+function formatDayLineForExport(date) {
+  const d = String(date.getDate()).padStart(2, "0");
+  const monthRaw = date.toLocaleDateString("es-ES", { month: "long" });
+  const month = monthRaw.charAt(0).toUpperCase() + monthRaw.slice(1);
+  return `${d} - ${month} - ${date.getFullYear()}`;
+}
+
 function slotId(iso, franja, tipo) {
   return `${iso}__${franja}__${tipo}`;
 }
@@ -465,7 +473,7 @@ function renderTable(schedule, state, onChange) {
         const td = document.createElement("td");
         td.className = "dayCell";
         td.rowSpan = 2;
-        td.innerHTML = `${day.label}<span class="daySub">${day.iso}</span>`;
+        td.innerHTML = `${day.label}<span class="daySub daySubScreen">${escapeHtml(day.iso)}</span><span class="daySub daySubExport">${escapeHtml(formatDayLineForExport(day.date))}</span>`;
         tr.appendChild(td);
       }
       const tdTipo = document.createElement("td");

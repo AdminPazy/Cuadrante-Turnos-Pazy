@@ -460,6 +460,15 @@ p{ margin:6px 0 0; }
   letter-spacing: .04em;
   font-variant-numeric: tabular-nums;
 }
+.daySubExport{
+  display: none;
+}
+#scheduleCapture.export-clean .daySubScreen{
+  display: none !important;
+}
+#scheduleCapture.export-clean .daySubExport{
+  display: block !important;
+}
 #scheduleCapture.export-clean .dayCell{
   text-align: center !important;
   font-size: 17px !important;
