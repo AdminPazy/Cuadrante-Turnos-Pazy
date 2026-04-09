@@ -132,27 +132,27 @@ function countDayTokens(row) {
   }, 0);
 }
 
+function countWeekdayTokens(row) {
+  return row.reduce((acc, cell) => {
+    const x = normalizeCellForVac(cell);
+    return ["l", "m", "x", "j", "v", "s", "d"].includes(x) ? acc + 1 : acc;
+  }, 0);
+}
+
 function detectDateRows(grid) {
-  let monthRowIdx = -1;
-  let bestMonthScore = 0;
-  for (let r = 0; r < grid.length; r++) {
-    const score = countMonthTokens(grid[r] || []);
-    if (score > bestMonthScore) {
-      bestMonthScore = score;
-      monthRowIdx = r;
-    }
-  }
-  if (monthRowIdx < 0 || bestMonthScore < 1) return null;
   let dayRowIdx = -1;
   let bestDayScore = 0;
-  for (let r = monthRowIdx; r < Math.min(grid.length, monthRowIdx + 6); r++) {
-    const score = countDayTokens(grid[r] || []);
-    if (score > bestDayScore) {
-      bestDayScore = score;
+  for (let r = 1; r < grid.length; r++) {
+    const dayScore = countDayTokens(grid[r] || []);
+    const weekScore = countWeekdayTokens(grid[r - 1] || []);
+    if (dayScore >= 8 && weekScore >= 5 && dayScore > bestDayScore) {
+      bestDayScore = dayScore;
       dayRowIdx = r;
     }
   }
-  if (dayRowIdx < 0 || bestDayScore < 5) return null;
+  if (dayRowIdx < 0) return null;
+  const monthRowIdx = Math.max(0, dayRowIdx - 2);
+  if (countMonthTokens(grid[monthRowIdx] || []) < 1) return null;
   return { monthRowIdx, dayRowIdx };
 }
 
