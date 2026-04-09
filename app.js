@@ -1,7 +1,7 @@
 /* global html2canvas */
 
 const STORAGE_KEY = "turnosPazy.localState.v4";
-const DEFAULT_PEOPLE = ["Georgi Valeriev", "Magui Cerda", "Antonella Sipan", "Inigo Puyol", "Luz Romero", "Patricia Lopez", "Jorge Romera", "Irene Penalosa", "Maria Jose Rubio", "Alessandra Solis", "Adrian Garces", "Ignacio Rivas", "Alonso Garcia", "Rodrigo Fernandez", "Lara Carrasco"];
+const DEFAULT_PEOPLE = ["Georgi Valeriev", "Magui Cerdá", "Antonella Sipan", "Iñigo Puyol", "Luz Romero", "Patricia Lopez", "Jorge Romera", "Irene Peñalosa", "Maria Jose Rubio", "Alessandra Solis", "Adrian Garces", "Ignacio Rivas", "Alonso Garcia", "Rodrigo Fernandez", "Lara Carrasco"];
 const DAYS = [{ key: "JUE", label: "Jueves" }, { key: "VIE", label: "Viernes" }, { key: "SAB", label: "Sábado" }, { key: "DOM", label: "Domingo" }, { key: "LUN", label: "Lunes" }, { key: "MAR", label: "Martes" }, { key: "MIE", label: "Miércoles" }];
 const FRANJAS = [{ key: "MANANA", label: "Mañana" }, { key: "TARDE", label: "Tarde" }, { key: "NOCHE", label: "Noche" }];
 const TIPOS = [{ key: "FIJO", label: "Fijo" }, { key: "BACKUP", label: "Back-up" }];
@@ -33,6 +33,16 @@ const status = (text, kind = "muted") => {
   el.className = `status ${kind}`;
   el.textContent = text;
 };
+const NAME_FIX = {
+  "Irene Penalosa": "Irene Peñalosa",
+  "Inigo Puyol": "Iñigo Puyol",
+  "Magui Cerda": "Magui Cerdá",
+};
+
+function fixName(s) {
+  const n = norm(s);
+  return NAME_FIX[n] || n;
+}
 
 function computeThursday(isoDate) {
   const d = isoDate ? parseISO(isoDate) : new Date();
@@ -76,8 +86,10 @@ function loadState() {
       weekStart: computeThursday(parsed.weekStart),
       monthOffset: Number(parsed.monthOffset || 0),
       generationCounter: Number(parsed.generationCounter || 0),
-      people: sortNames(uniq((parsed.people || DEFAULT_PEOPLE).map(norm).filter(Boolean))),
-      vacationRanges: Array.isArray(parsed.vacationRanges) ? parsed.vacationRanges : [],
+      people: sortNames(uniq((parsed.people || DEFAULT_PEOPLE).map(fixName).filter(Boolean))),
+      vacationRanges: Array.isArray(parsed.vacationRanges)
+        ? parsed.vacationRanges.map((r) => ({ ...r, person: fixName(r.person) }))
+        : [],
       schedulesByWeek: parsed.schedulesByWeek || {},
     };
   } catch {
