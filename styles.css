@@ -436,15 +436,40 @@ p{ margin:6px 0 0; }
   letter-spacing: .6px;
   color: #475569;
 }
-.colDay{ width: 190px; }
+.colDay{ width: 200px; }
 .colType{ width: 120px; }
-.colShift{ width: calc((100% - 310px)/3); }
+.colShift{ width: calc((100% - 320px)/3); }
 
+.scheduleTable th.colDay,
+.scheduleTable td.dayCell{
+  text-align: center;
+  vertical-align: middle;
+}
 .dayCell{
   font-weight: 900;
-  letter-spacing: .2px;
+  letter-spacing: .02em;
+  font-size: clamp(15px, 1.35vw, 18px);
+  line-height: 1.25;
 }
-.daySub{ display:block; margin-top: 4px; font-weight: 700; color: var(--muted); font-size: 12px; }
+.daySub{
+  display: block;
+  margin-top: 6px;
+  font-weight: 700;
+  color: var(--muted);
+  font-size: clamp(12px, 1.05vw, 14px);
+  letter-spacing: .04em;
+  font-variant-numeric: tabular-nums;
+}
+#scheduleCapture.export-clean .dayCell{
+  text-align: center !important;
+  font-size: 17px !important;
+  line-height: 1.3 !important;
+  color: #0f172a !important;
+}
+#scheduleCapture.export-clean .daySub{
+  font-size: 14px !important;
+  color: #475569 !important;
+}
 .typePill{
   display:inline-flex;
   align-items:center;
