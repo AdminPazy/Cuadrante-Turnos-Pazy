@@ -346,7 +346,8 @@ p{ margin:6px 0 0; }
 #scheduleCapture.export-clean .slotCell.fijo:not(.todos) .slotSelect{
   background: #c9edf2 !important;
   background-image: none !important;
-  border-color: #7dd3dc !important;
+  border-color: #9fdce4 !important;
+  border-width: 1px !important;
   color: #0b3b42 !important;
   font-weight: 800 !important;
   box-shadow: none !important;
