@@ -13,7 +13,8 @@
     <link rel="stylesheet" href="./styles.css?v=20260409g" />
     <meta name="color-scheme" content="light dark" />
     <script defer src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-    <script defer src="./app.js?v=20260409h"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <script defer src="./app.js?v=20260409i"></script>
   </head>
   <body>
     <div class="app">
@@ -86,6 +87,8 @@
             <div class="row rowTight compactRow">
               <div class="actions">
                 <button id="btnSyncVacations" class="btn" type="button">Actualizar vacaciones de forma automática</button>
+                <button id="btnImportVacImage" class="btn ghost" type="button">Subir imagen vacaciones</button>
+                <input id="vacImageFile" type="file" accept="image/*" style="display:none" />
               </div>
             </div>
             <div class="row rowTight compactRow">

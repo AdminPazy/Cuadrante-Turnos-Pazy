@@ -305,6 +305,92 @@ function extractAutoVacationRanges(csvText, people, baseYear) {
   return ranges;
 }
 
+function parseOcrWord(text) {
+  return normalizeKey(text || "").replace(/[^a-z0-9]/g, "");
+}
+
+function monthFromTextLoose(text) {
+  const x = normalizeCellForVac(text || "");
+  if (!x) return null;
+  for (const [k, v] of Object.entries(MONTH_MAP)) {
+    if (x.includes(k)) return v;
+  }
+  return null;
+}
+
+async function extractAutoVacationRangesFromImage(file, people, baseYear) {
+  if (!window.Tesseract) throw new Error("OCR no disponible");
+  const allowed = new Map(people.map((p) => [normalizeKey(p), p]));
+  const imageUrl = URL.createObjectURL(file);
+  try {
+    const res = await window.Tesseract.recognize(imageUrl, "spa+eng");
+    const words = (res?.data?.words || []).map((w) => ({
+      text: String(w.text || ""),
+      norm: parseOcrWord(w.text),
+      x: w.bbox?.x0 ?? 0,
+      y: w.bbox?.y0 ?? 0,
+      w: (w.bbox?.x1 ?? 0) - (w.bbox?.x0 ?? 0),
+      h: (w.bbox?.y1 ?? 0) - (w.bbox?.y0 ?? 0),
+    })).filter((w) => w.norm);
+    if (!words.length) return [];
+
+    const monthAnchors = words
+      .map((w) => ({ ...w, month: monthFromTextLoose(w.text) }))
+      .filter((w) => w.month != null)
+      .sort((a, b) => a.x - b.x);
+    const dayWords = words
+      .map((w) => ({ ...w, day: Number(w.norm) }))
+      .filter((w) => Number.isInteger(w.day) && w.day >= 1 && w.day <= 31 && monthAnchors.length)
+      .filter((w) => {
+        const nearestMonthY = monthAnchors.reduce((best, m) => Math.abs(m.x - w.x) < Math.abs(best.x - w.x) ? m : best, monthAnchors[0]).y;
+        return w.y >= nearestMonthY && w.y <= nearestMonthY + 120;
+      })
+      .sort((a, b) => a.x - b.x);
+    if (!dayWords.length) return [];
+
+    let year = Number(baseYear) || new Date().getFullYear();
+    const columns = dayWords.map((d) => {
+      const monthAnchor = monthAnchors
+        .filter((m) => m.x <= d.x + Math.max(2, d.w * 0.2))
+        .sort((a, b) => b.x - a.x)[0] || monthAnchors[0];
+      return { x: d.x + d.w / 2, iso: `${year}-${String(monthAnchor.month + 1).padStart(2, "0")}-${String(d.day).padStart(2, "0")}` };
+    });
+
+    const leftBoundary = Math.min(...dayWords.map((d) => d.x)) - 10;
+    const nameRows = [];
+    for (const p of people) {
+      const tokens = normalizeKey(p).split(" ").filter(Boolean);
+      if (!tokens.length) continue;
+      const first = tokens[0];
+      const cands = words.filter((w) => w.x < leftBoundary && w.norm === first);
+      if (!cands.length) continue;
+      const pick = cands[0];
+      nameRows.push({ person: allowed.get(normalizeKey(p)) || p, y: pick.y + pick.h / 2 });
+    }
+    if (!nameRows.length) return [];
+
+    const personDays = new Map(people.map((p) => [p, new Set()]));
+    const vWords = words.filter((w) => w.norm === "v" && w.x >= leftBoundary);
+    for (const vw of vWords) {
+      const row = nameRows.reduce((best, r) => Math.abs(r.y - vw.y) < Math.abs(best.y - vw.y) ? r : best, nameRows[0]);
+      if (Math.abs(row.y - vw.y) > 16) continue;
+      const col = columns.reduce((best, c) => Math.abs(c.x - vw.x) < Math.abs(best.x - vw.x) ? c : best, columns[0]);
+      personDays.get(row.person)?.add(col.iso);
+    }
+
+    const ranges = [];
+    for (const [person, setDays] of personDays.entries()) {
+      if (!setDays.size) continue;
+      applyAdjacentWeekendRule(setDays);
+      const sorted = [...setDays].sort();
+      for (const rg of compactRanges(sorted)) ranges.push({ person, from: rg.from, to: rg.to, source: "auto" });
+    }
+    return ranges;
+  } finally {
+    URL.revokeObjectURL(imageUrl);
+  }
+}
+
 function computeThursday(isoDate) {
   const d = isoDate ? parseISO(isoDate) : new Date();
   const x = new Date(d);
@@ -738,6 +824,26 @@ function init() {
       status(`Vacaciones automáticas actualizadas (${autoRanges.length} rangos).`, "ok");
     } catch (e) {
       status(`No se pudo actualizar vacaciones automáticas: ${e.message}`, "bad");
+    }
+  });
+
+  qs("btnImportVacImage").addEventListener("click", () => qs("vacImageFile").click());
+  qs("vacImageFile").addEventListener("change", async () => {
+    const file = qs("vacImageFile").files?.[0];
+    if (!file) return;
+    try {
+      status("Analizando imagen de vacaciones...", "warn");
+      const year = parseISO(state.weekStart)?.getFullYear() || new Date().getFullYear();
+      const autoRanges = await extractAutoVacationRangesFromImage(file, state.people, year);
+      const manualRanges = state.vacationRanges.filter((r) => (r.source || "manual") !== "auto");
+      state.vacationRanges = [...manualRanges, ...autoRanges];
+      rerender();
+      persist("vacaciones imagen");
+      status(`Vacaciones por imagen actualizadas (${autoRanges.length} rangos).`, "ok");
+    } catch (e) {
+      status(`No se pudo analizar imagen: ${e.message}`, "bad");
+    } finally {
+      qs("vacImageFile").value = "";
     }
   });
 
