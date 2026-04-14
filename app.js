@@ -275,7 +275,12 @@ function buildDateColumnsFixedLayout(grid, fallbackYear) {
   return out;
 }
 
-function extractAutoVacationRanges(csvText, people, baseYear) {
+function inIsoRange(iso, fromIso, toIso) {
+  if (!fromIso || !toIso) return true;
+  return iso >= fromIso && iso <= toIso;
+}
+
+function extractAutoVacationRanges(csvText, people, baseYear, fromIso, toIso) {
   const grid = parseCsv(csvText);
   if (!grid.length) return [];
   const columns = buildDateColumnsFixedLayout(grid, baseYear);
@@ -289,6 +294,7 @@ function extractAutoVacationRanges(csvText, people, baseYear) {
     const name = allowedByKey.get(normalizeKey(nameCell));
     if (!name) continue;
     for (const col of columns) {
+      if (!inIsoRange(col.iso, fromIso, toIso)) continue;
       const cellRaw = clamp(grid[r]?.[col.c] || "");
       if (cellRaw.toLowerCase() === "v") personDays.get(name).add(col.iso);
     }
@@ -851,6 +857,8 @@ function init() {
   const runAutoVacationSync = async () => {
     try {
       const year = parseISO(state.weekStart)?.getFullYear() || new Date().getFullYear();
+      const weekStartIso = state.weekStart;
+      const weekEndIso = toISO(addDays(parseISO(state.weekStart), 6));
       const rawUrl = clamp(qs("vacAutoUrl").value) || state.vacAutoUrl || DEFAULT_VAC_SHEET_URL;
       const csvUrl = csvUrlFromSheetUrl(rawUrl);
       if (!csvUrl) {
@@ -861,14 +869,14 @@ function init() {
       const res = await fetch(csvUrl, { method: "GET" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const csvText = await res.text();
-      const autoRanges = extractAutoVacationRanges(csvText, state.people, year);
+      const autoRanges = extractAutoVacationRanges(csvText, state.people, year, weekStartIso, weekEndIso);
       state.vacAutoUrl = rawUrl;
       qs("vacAutoUrl").value = rawUrl;
       const manualRanges = state.vacationRanges.filter((r) => (r.source || "manual") !== "auto");
       state.vacationRanges = [...manualRanges, ...autoRanges];
       rerender();
       persist("vacaciones auto");
-      const msg = `Vacaciones automáticas actualizadas (${autoRanges.length} rangos).`;
+      const msg = `Vacaciones automáticas actualizadas para ${weekStartIso} a ${weekEndIso} (${autoRanges.length} rangos).`;
       status(msg, "ok");
       alert(msg);
     } catch (e) {
