@@ -240,22 +240,49 @@ function applyAdjacentWeekendRule(isoSet) {
   for (const iso of extra) isoSet.add(iso);
 }
 
+function buildDateColumnsFixedLayout(grid, fallbackYear) {
+  const YEAR_ROW = 10; // fila 11
+  const MONTH_ROW = 11; // fila 12
+  const DAY_ROW = 13; // fila 14
+  const yearRow = grid[YEAR_ROW] || [];
+  const monthRow = grid[MONTH_ROW] || [];
+  const dayRow = grid[DAY_ROW] || [];
+  const maxCols = Math.max(yearRow.length, monthRow.length, dayRow.length);
+  const out = [];
+  let currentMonth = -1;
+  let currentYear = Number(fallbackYear) || new Date().getFullYear();
+  let lastMonth = -1;
+  for (let c = 0; c < maxCols; c++) {
+    const yearCell = String(yearRow[c] || "");
+    const yearMatch = yearCell.match(/\b(20\d{2})\b/);
+    if (yearMatch) currentYear = Number(yearMatch[1]);
+    const rawMonth = normalizeCellForVac(monthRow[c] || "");
+    if (MONTH_MAP[rawMonth] != null) currentMonth = MONTH_MAP[rawMonth];
+    const dayNum = Number(String(dayRow[c] || "").replace(/[^\d]/g, ""));
+    if (currentMonth < 0 || !Number.isInteger(dayNum) || dayNum < 1 || dayNum > 31) continue;
+    if (lastMonth !== -1 && currentMonth < lastMonth && !yearMatch) currentYear += 1;
+    lastMonth = currentMonth;
+    out.push({ c, iso: `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}` });
+  }
+  return out;
+}
+
 function extractAutoVacationRanges(csvText, people, baseYear) {
   const grid = parseCsv(csvText);
   if (!grid.length) return [];
-  const { columns, dayRowIdx } = buildDateColumns(grid, baseYear);
+  const columns = buildDateColumnsFixedLayout(grid, baseYear);
   if (!columns.length) return [];
-  const { nameCol, nameHits } = detectNameColumn(grid, dayRowIdx, people);
-  if (nameHits < 1) return [];
+  const nameCol = 2; // columna C
+  const firstPersonRow = 14; // fila 15
   const allowedByKey = new Map(people.map((p) => [normalizeKey(p), p]));
   const personDays = new Map(people.map((p) => [p, new Set()]));
-  for (let r = Math.max(0, dayRowIdx + 1); r < grid.length; r++) {
+  for (let r = firstPersonRow; r < grid.length; r++) {
     const nameCell = fixName(grid[r]?.[nameCol] || "");
     const name = allowedByKey.get(normalizeKey(nameCell));
     if (!name) continue;
     for (const col of columns) {
-      const cell = normalizeCellForVac(grid[r]?.[col.c] || "");
-      if (cell === "v") personDays.get(name).add(col.iso);
+      const cellRaw = clamp(grid[r]?.[col.c] || "");
+      if (cellRaw.toLowerCase() === "v") personDays.get(name).add(col.iso);
     }
   }
   const ranges = [];
