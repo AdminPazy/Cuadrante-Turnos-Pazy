@@ -344,7 +344,33 @@ async function extractAutoVacationRangesFromImage(file, people, baseYear) {
   const allowed = new Map(people.map((p) => [normalizeKey(p), p]));
   const imageUrl = URL.createObjectURL(file);
   try {
-    const res = await window.Tesseract.recognize(imageUrl, "spa+eng");
+    const img = await new Promise((resolve, reject) => {
+      const im = new Image();
+      im.onload = () => resolve(im);
+      im.onerror = reject;
+      im.src = imageUrl;
+    });
+    const canvas = document.createElement("canvas");
+    const scale = Math.max(2, 2200 / Math.max(1, img.width));
+    canvas.width = Math.round(img.width * scale);
+    canvas.height = Math.round(img.height * scale);
+    const ctx = canvas.getContext("2d");
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    const id = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const d = id.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const gray = Math.round((d[i] * 0.299) + (d[i + 1] * 0.587) + (d[i + 2] * 0.114));
+      const bw = gray > 160 ? 255 : 0;
+      d[i] = bw;
+      d[i + 1] = bw;
+      d[i + 2] = bw;
+    }
+    ctx.putImageData(id, 0, 0);
+    const res = await window.Tesseract.recognize(canvas, "spa+eng", {
+      tessedit_pageseg_mode: "11",
+      preserve_interword_spaces: "1",
+    });
     const words = (res?.data?.words || []).map((w) => ({
       text: String(w.text || ""),
       norm: parseOcrWord(w.text),
@@ -364,7 +390,7 @@ async function extractAutoVacationRangesFromImage(file, people, baseYear) {
       .filter((w) => Number.isInteger(w.day) && w.day >= 1 && w.day <= 31 && monthAnchors.length)
       .filter((w) => {
         const nearestMonthY = monthAnchors.reduce((best, m) => Math.abs(m.x - w.x) < Math.abs(best.x - w.x) ? m : best, monthAnchors[0]).y;
-        return w.y >= nearestMonthY && w.y <= nearestMonthY + 120;
+        return w.y >= nearestMonthY && w.y <= nearestMonthY + 170;
       })
       .sort((a, b) => a.x - b.x);
     if (!dayWords.length) return [];
@@ -377,7 +403,7 @@ async function extractAutoVacationRangesFromImage(file, people, baseYear) {
       return { x: d.x + d.w / 2, iso: `${year}-${String(monthAnchor.month + 1).padStart(2, "0")}-${String(d.day).padStart(2, "0")}` };
     });
 
-    const leftBoundary = Math.min(...dayWords.map((d) => d.x)) - 10;
+    const leftBoundary = Math.min(...dayWords.map((d) => d.x)) - 30;
     const nameRows = [];
     for (const p of people) {
       const tokens = normalizeKey(p).split(" ").filter(Boolean);
@@ -394,7 +420,7 @@ async function extractAutoVacationRangesFromImage(file, people, baseYear) {
     const vWords = words.filter((w) => w.norm === "v" && w.x >= leftBoundary);
     for (const vw of vWords) {
       const row = nameRows.reduce((best, r) => Math.abs(r.y - vw.y) < Math.abs(best.y - vw.y) ? r : best, nameRows[0]);
-      if (Math.abs(row.y - vw.y) > 16) continue;
+      if (Math.abs(row.y - vw.y) > 28) continue;
       const col = columns.reduce((best, c) => Math.abs(c.x - vw.x) < Math.abs(best.x - vw.x) ? c : best, columns[0]);
       personDays.get(row.person)?.add(col.iso);
     }
