@@ -252,12 +252,20 @@ function buildDateColumnsFixedLayout(grid, fallbackYear) {
   let currentMonth = -1;
   let currentYear = Number(fallbackYear) || new Date().getFullYear();
   let lastMonth = -1;
+  const monthFromAnyCell = (cell) => {
+    const x = normalizeCellForVac(cell || "");
+    if (!x) return null;
+    for (const [k, v] of Object.entries(MONTH_MAP)) {
+      if (x.includes(k)) return v;
+    }
+    return null;
+  };
   for (let c = 0; c < maxCols; c++) {
     const yearCell = String(yearRow[c] || "");
     const yearMatch = yearCell.match(/\b(20\d{2})\b/);
     if (yearMatch) currentYear = Number(yearMatch[1]);
-    const rawMonth = normalizeCellForVac(monthRow[c] || "");
-    if (MONTH_MAP[rawMonth] != null) currentMonth = MONTH_MAP[rawMonth];
+    const monthHit = monthFromAnyCell(monthRow[c] || "");
+    if (monthHit != null) currentMonth = monthHit;
     const dayNum = Number(String(dayRow[c] || "").replace(/[^\d]/g, ""));
     if (currentMonth < 0 || !Number.isInteger(dayNum) || dayNum < 1 || dayNum > 31) continue;
     if (lastMonth !== -1 && currentMonth < lastMonth && !yearMatch) currentYear += 1;
