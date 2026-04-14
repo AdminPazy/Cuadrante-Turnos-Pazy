@@ -866,13 +866,14 @@ function init() {
     }
   });
 
-  qs("weekStart").addEventListener("change", () => {
+  qs("weekStart").addEventListener("change", async () => {
     const iso = computeThursday(qs("weekStart").value);
     qs("weekStart").value = iso;
     state.weekStart = iso;
     schedule = state.schedulesByWeek[iso] || emptySchedule(iso);
     rerender();
     persist("semana");
+    await runAutoVacationSync({ silent: true });
   });
 
   qs("btnMonthPrev").addEventListener("click", () => {
@@ -905,8 +906,9 @@ function init() {
     saveState(state);
   });
 
-  const runAutoVacationSync = async () => {
+  const runAutoVacationSync = async ({ silent = false } = {}) => {
     try {
+      qs("btnSyncVacations").disabled = true;
       const weekStartIso = state.weekStart;
       const weekEndIso = toISO(addDays(parseISO(state.weekStart), 6));
       const rawUrl = clamp(qs("vacAutoUrl").value) || state.vacAutoUrl || DEFAULT_VAC_SHEET_URL;
@@ -928,18 +930,18 @@ function init() {
       persist("vacaciones auto");
       const msg = `Vacaciones automáticas actualizadas para ${weekStartIso} a ${weekEndIso} (${autoRanges.length} rangos).`;
       status(msg, "ok");
-      alert(msg);
+      if (!silent) alert(msg);
     } catch (e) {
       const msg = `No se pudo actualizar vacaciones automáticas: ${e.message}`;
       status(msg, "bad");
-      alert(msg);
+      if (!silent) alert(msg);
     } finally {
       qs("btnSyncVacations").disabled = false;
     }
   };
 
   qs("btnSyncVacations").addEventListener("click", async () => {
-    await runAutoVacationSync();
+    await runAutoVacationSync({ silent: false });
   });
 
   qs("btnRemoveVacation").addEventListener("click", () => {
@@ -952,6 +954,7 @@ function init() {
   });
 
   rerender();
+  runAutoVacationSync({ silent: true });
 }
 
 document.addEventListener("DOMContentLoaded", init);
