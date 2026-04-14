@@ -84,10 +84,16 @@ function parseSheetRef(url) {
 function csvUrlFromSheetUrl(url) {
   const ref = parseSheetRef(url);
   if (!ref) return null;
-  return `https://docs.google.com/spreadsheets/d/${ref.sheetId}/gviz/tq?tqx=out:csv&gid=${ref.gid}`;
+  return `https://docs.google.com/spreadsheets/d/${ref.sheetId}/gviz/tq?tqx=out:tsv&gid=${ref.gid}`;
 }
 
 function parseCsv(text) {
+  if (String(text || "").includes("\t")) {
+    return String(text)
+      .replace(/\r/g, "")
+      .split("\n")
+      .map((line) => line.split("\t"));
+  }
   const rows = [];
   let row = [];
   let cur = "";
