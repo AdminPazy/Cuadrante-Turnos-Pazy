@@ -38,7 +38,7 @@ const NAME_FIX = {
   "Inigo Puyol": "Iñigo Puyol",
   "Magui Cerda": "Magui Cerdá",
 };
-const DEFAULT_VAC_SHEET_URL = "https://docs.google.com/spreadsheets/d/1eAFz2aAyk57GBtax1GEOEVTZMRVUFUI0WjECzz3PmnM/edit?usp=sharing";
+const DEFAULT_VAC_SHEET_URL = "https://docs.google.com/spreadsheets/d/1eAFz2aAyk57GBtax1GEOEVTZMRVUFUI0WjECzz3PmnM/edit?pli=1&gid=1549907077#gid=1549907077";
 const MONTH_MAP = {
   ene: 0, enero: 0,
   feb: 1, febrero: 1,
@@ -284,6 +284,38 @@ function buildDateColumnsFixedLayout(grid, fallbackYear) {
 function inIsoRange(iso, fromIso, toIso) {
   if (!fromIso || !toIso) return true;
   return iso >= fromIso && iso <= toIso;
+}
+
+function parseIsoFlexible(value) {
+  const raw = clamp(value);
+  const ymd = raw.match(/\b(20\d{2})-(\d{2})-(\d{2})\b/);
+  if (ymd) return `${ymd[1]}-${ymd[2]}-${ymd[3]}`;
+  const dt = new Date(raw);
+  if (!Number.isNaN(dt.getTime())) return toISO(dt);
+  return "";
+}
+
+function extractAutoVacationRangesFromExportTable(rawText, people, fromIso, toIso) {
+  const grid = parseCsv(rawText);
+  if (!grid.length) return [];
+  const allowedByKey = new Map(people.map((p) => [normalizeKey(p), p]));
+  const personDays = new Map(people.map((p) => [p, new Set()]));
+  for (let r = 1; r < grid.length; r++) {
+    const nameRaw = fixName(grid[r]?.[0] || ""); // A: Nombre
+    const iso = parseIsoFlexible(grid[r]?.[1] || ""); // B: Fecha
+    if (!iso || !inIsoRange(iso, fromIso, toIso)) continue;
+    const canonical = allowedByKey.get(normalizeKey(nameRaw));
+    if (!canonical) continue;
+    personDays.get(canonical).add(iso);
+  }
+  const ranges = [];
+  for (const [person, setDays] of personDays.entries()) {
+    if (!setDays.size) continue;
+    applyAdjacentWeekendRule(setDays);
+    const sorted = [...setDays].sort();
+    for (const rg of compactRanges(sorted)) ranges.push({ person, from: rg.from, to: rg.to, source: "auto" });
+  }
+  return ranges;
 }
 
 function detectFirstPeopleRow(grid, people) {
@@ -875,7 +907,6 @@ function init() {
 
   const runAutoVacationSync = async () => {
     try {
-      const year = parseISO(state.weekStart)?.getFullYear() || new Date().getFullYear();
       const weekStartIso = state.weekStart;
       const weekEndIso = toISO(addDays(parseISO(state.weekStart), 6));
       const rawUrl = clamp(qs("vacAutoUrl").value) || state.vacAutoUrl || DEFAULT_VAC_SHEET_URL;
@@ -888,7 +919,7 @@ function init() {
       const res = await fetch(csvUrl, { method: "GET" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const csvText = await res.text();
-      const autoRanges = extractAutoVacationRanges(csvText, state.people, year, weekStartIso, weekEndIso);
+      const autoRanges = extractAutoVacationRangesFromExportTable(csvText, state.people, weekStartIso, weekEndIso);
       state.vacAutoUrl = rawUrl;
       qs("vacAutoUrl").value = rawUrl;
       const manualRanges = state.vacationRanges.filter((r) => (r.source || "manual") !== "auto");
