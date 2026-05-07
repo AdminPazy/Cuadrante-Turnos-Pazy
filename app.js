@@ -1,7 +1,7 @@
 /* global html2canvas */
 
 const STORAGE_KEY = "turnosPazy.localState.v4";
-const DEFAULT_PEOPLE = ["Georgi Valeriev", "Magui Cerdá", "Antonella Sipan", "Iñigo Puyol", "Luz Romero", "Patricia Lopez", "Jorge Romera", "Irene Peñalosa", "Maria Jose Rubio", "Alessandra Solis", "Adrian Garces", "Ignacio Rivas", "Alonso Garcia", "Rodrigo Fernandez", "Lara Carrasco"];
+const DEFAULT_PEOPLE = ["Georgi Valeriev", "Antonella Sipan", "Iñigo Puyol", "Luz Romero", "Patricia Lopez", "Jorge Romera", "Irene Peñalosa", "Maria Jose Rubio", "Alessandra Solis", "Adrian Garces", "Ignacio Rivas", "Alonso Garcia", "Rodrigo Fernandez", "Lara Carrasco"];
 const DAYS = [{ key: "JUE", label: "Jueves" }, { key: "VIE", label: "Viernes" }, { key: "SAB", label: "Sábado" }, { key: "DOM", label: "Domingo" }, { key: "LUN", label: "Lunes" }, { key: "MAR", label: "Martes" }, { key: "MIE", label: "Miércoles" }];
 const FRANJAS = [{ key: "MANANA", label: "Mañana" }, { key: "TARDE", label: "Tarde" }, { key: "NOCHE", label: "Noche" }];
 const TIPOS = [{ key: "FIJO", label: "Fijo" }, { key: "BACKUP", label: "Back-up" }];
@@ -36,8 +36,9 @@ const status = (text, kind = "muted") => {
 const NAME_FIX = {
   "Irene Penalosa": "Irene Peñalosa",
   "Inigo Puyol": "Iñigo Puyol",
-  "Magui Cerda": "Magui Cerdá",
 };
+/** Claves normalizadas de personas retiradas del cuadrante (no aparecen ni en datos guardados). */
+const EXCLUDED_PERSON_KEYS = new Set(["magui cerda"]);
 const DEFAULT_VAC_SHEET_URL = "https://docs.google.com/spreadsheets/d/1eAFz2aAyk57GBtax1GEOEVTZMRVUFUI0WjECzz3PmnM/edit?pli=1&gid=1549907077#gid=1549907077";
 const MONTH_MAP = {
   ene: 0, enero: 0,
@@ -87,10 +88,37 @@ function fixName(s) {
   return NAME_FIX[n] || n;
 }
 
+function isExcludedPerson(name) {
+  const key = normalizeKey(fixName(name || ""));
+  return EXCLUDED_PERSON_KEYS.has(key);
+}
+
+/** Limpia listas y cuadrantes guardados para que no queden excluid@s. */
+function sanitizeLocalState(state) {
+  state.people = sortNames(uniq((state.people || DEFAULT_PEOPLE).map(fixName).filter(Boolean).filter((p) => !isExcludedPerson(p))));
+  if (!state.people.length) state.people = [...DEFAULT_PEOPLE];
+
+  state.vacationRanges = Array.isArray(state.vacationRanges)
+    ? state.vacationRanges.filter((r) => !isExcludedPerson(r.person))
+    : [];
+
+  const schedules = state.schedulesByWeek || {};
+  for (const ws of Object.keys(schedules)) {
+    const sch = schedules[ws];
+    if (!sch?.slots) continue;
+    for (const id of Object.keys(sch.slots)) {
+      const slot = sch.slots[id];
+      if (!slot || !isExcludedPerson(slot.asignadoA)) continue;
+      sch.slots[id] = { ...slot, asignadoA: "" };
+    }
+  }
+  return state;
+}
+
 /** Todos los comerciales en desplegables: lista base + cualquier nombre extra guardado en estado. */
 function allVentasForDropdown(state) {
   const extra = Array.isArray(state.people) ? state.people : [];
-  return sortNames(uniq([...DEFAULT_PEOPLE, ...extra].map(fixName).filter(Boolean)));
+  return sortNames(uniq([...DEFAULT_PEOPLE, ...extra].map(fixName).filter(Boolean).filter((p) => !isExcludedPerson(p))));
 }
 
 function normalizeKey(s) {
@@ -653,7 +681,7 @@ function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     const parsed = raw ? JSON.parse(raw) : {};
-    return {
+    return sanitizeLocalState({
       weekStart: computeThursday(parsed.weekStart),
       monthOffset: Number(parsed.monthOffset || 0),
       generationCounter: Number(parsed.generationCounter || 0),
@@ -663,17 +691,17 @@ function loadState() {
         ? parsed.vacationRanges.map((r) => ({ ...r, person: fixName(r.person), source: r.source || "manual" }))
         : [],
       schedulesByWeek: parsed.schedulesByWeek || {},
-    };
+    });
   } catch {
-    return {
+    return sanitizeLocalState({
       weekStart: computeThursday(),
       monthOffset: 0,
       generationCounter: 0,
-      people: DEFAULT_PEOPLE,
+      people: [...DEFAULT_PEOPLE],
       vacAutoUrl: DEFAULT_VAC_SHEET_URL,
       vacationRanges: [],
       schedulesByWeek: {},
-    };
+    });
   }
 }
 
@@ -929,7 +957,8 @@ function init() {
   const state = loadState();
   state.weekStart = computeThursday(state.weekStart);
   state.monthOffset = Number(state.monthOffset || 0);
-  state.people = sortNames(uniq((state.people || DEFAULT_PEOPLE).map(fixName).filter(Boolean)));
+  state.people = sortNames(uniq((state.people || DEFAULT_PEOPLE).map(fixName).filter(Boolean).filter((p) => !isExcludedPerson(p))));
+  if (!state.people.length) state.people = [...DEFAULT_PEOPLE];
   state.vacAutoUrl = clamp(state.vacAutoUrl || DEFAULT_VAC_SHEET_URL);
   state.vacationRanges = Array.isArray(state.vacationRanges)
     ? state.vacationRanges.map((r) => ({ ...r, person: fixName(r.person), source: r.source || "manual" }))
@@ -1062,6 +1091,7 @@ function init() {
   });
 
   rerender();
+  persist("inicio");
   runAutoVacationSync({ silent: true });
 }
 
