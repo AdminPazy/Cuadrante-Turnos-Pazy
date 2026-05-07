@@ -89,8 +89,12 @@ function fixName(s) {
 }
 
 function isExcludedPerson(name) {
-  const key = normalizeKey(fixName(name || ""));
-  return EXCLUDED_PERSON_KEYS.has(key);
+  const raw = norm(name || "");
+  if (!raw) return false;
+  const key = normalizeKey(fixName(raw));
+  if (EXCLUDED_PERSON_KEYS.has(key)) return true;
+  const ascii = raw.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ");
+  return ascii === "magui cerda";
 }
 
 /** Limpia listas y cuadrantes guardados para que no queden excluid@s. */
@@ -423,6 +427,7 @@ function extractAutoVacationRangesFromExportTable(rawText, people, fromIso, toIs
   const personDays = new Map(people.map((p) => [p, new Set()]));
   for (let r = 1; r < grid.length; r++) {
     const nameRaw = fixName(grid[r]?.[0] || ""); // A: Nombre
+    if (isExcludedPerson(nameRaw)) continue;
     const iso = parseIsoFlexible(grid[r]?.[1] || ""); // B: Fecha
     if (!iso || !inIsoRange(iso, fromIso, toIso)) continue;
     const canonical = allowedByKey.get(normalizeKey(nameRaw));
@@ -713,6 +718,7 @@ function vacationsByISO(state) {
   const map = {};
   for (const r of state.vacationRanges) {
     const person = norm(r.person);
+    if (isExcludedPerson(person)) continue;
     const from = parseISO(r.from);
     const to = parseISO(r.to);
     if (!person || !from || !to) continue;
@@ -724,7 +730,7 @@ function vacationsByISO(state) {
       cur = addDays(cur, 1);
     }
   }
-  for (const iso of Object.keys(map)) map[iso] = uniq(map[iso]).sort((a, b) => a.localeCompare(b, "es"));
+  for (const iso of Object.keys(map)) map[iso] = uniq(map[iso]).filter((p) => !isExcludedPerson(p)).sort((a, b) => a.localeCompare(b, "es"));
   return map;
 }
 
@@ -737,6 +743,7 @@ function renderVacationControls(state) {
   const sel = qs("vacPerson");
   sel.innerHTML = "";
   for (const p of state.people) {
+    if (isExcludedPerson(p)) continue;
     const opt = document.createElement("option");
     opt.value = p;
     opt.textContent = p;
@@ -806,7 +813,7 @@ function renderSummary(schedule) {
   for (const s of Object.values(schedule.slots)) {
     if (s.modo === "TODOS") continue;
     const name = norm(s.asignadoA);
-    if (!name) continue;
+    if (!name || isExcludedPerson(name)) continue;
     const cur = counters.get(name) || { fijo: 0, backup: 0 };
     if (s.tipo === "FIJO") cur.fijo += 1;
     else cur.backup += 1;
@@ -841,12 +848,19 @@ function renderTable(schedule, state, onChange) {
       tr.appendChild(tdTipo);
       for (const franja of FRANJAS) {
         const id = slotId(day.iso, franja.key, tipo.key);
-        const cur = schedule.slots[id];
+        let cur = schedule.slots[id];
+        if (cur && isExcludedPerson(cur.asignadoA)) {
+          cur = { ...cur, asignadoA: "" };
+          schedule.slots[id] = cur;
+        }
         const sel = document.createElement("select");
         sel.className = "slotSelect";
         sel.appendChild(new Option("—", ""));
         sel.appendChild(new Option("TODOS", "__TODOS__"));
-        for (const p of ventas) sel.appendChild(new Option(p, p));
+        for (const p of ventas) {
+          if (isExcludedPerson(p)) continue;
+          sel.appendChild(new Option(p, p));
+        }
         sel.value = cur.modo === "TODOS" ? "__TODOS__" : (cur.asignadoA || "");
         sel.addEventListener("change", () => {
           if (sel.value === "__TODOS__") schedule.slots[id] = { ...cur, modo: "TODOS", asignadoA: "" };
@@ -883,10 +897,12 @@ function mulberry32(seed) {
 
 function generate(schedule, state) {
   const vacMap = vacationsByISO(state);
+  const roster = state.people.filter((p) => !isExcludedPerson(p));
   state.generationCounter = Number(state.generationCounter || 0) + 1;
   const seed = (Date.now() ^ Math.floor(Math.random() * 1e9) ^ (state.generationCounter * 2654435761)) >>> 0;
   const rng = mulberry32(seed);
-  const stats = new Map(state.people.map((p) => [p, { total: 0, byFranja: { MANANA: 0, TARDE: 0, NOCHE: 0 }, fijo: 0, backup: 0 }]));
+  const stats = new Map(roster.map((p) => [p, { total: 0, byFranja: { MANANA: 0, TARDE: 0, NOCHE: 0 }, fijo: 0, backup: 0 }]));
+  if (!roster.length) return;
   for (const day of weekFrom(schedule.weekStart)) {
     const isWorkdayMorningByDefault = [1, 2, 3, 4, 5].includes(day.date.getDay()) && !isNonWorkingDate(day.date);
     for (const tipo of TIPOS) {
@@ -905,8 +921,8 @@ function generate(schedule, state) {
         const id = slotId(day.iso, franja.key, tipo.key);
         const cur = schedule.slots[id];
         if (cur.modo === "TODOS") continue;
-        let cands = availableForDate(state.people, vacMap, day.iso).filter((n) => !usedToday.has(n));
-        if (!cands.length) cands = availableForDate(state.people, vacMap, day.iso);
+        let cands = availableForDate(roster, vacMap, day.iso).filter((n) => !usedToday.has(n));
+        if (!cands.length) cands = availableForDate(roster, vacMap, day.iso);
         if (!cands.length) {
           cur.asignadoA = "";
           continue;
